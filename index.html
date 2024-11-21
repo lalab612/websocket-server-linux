@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+
+<html>
+  <head runat="server">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title></title>
+    <script src="jquery/jquery-3.5.1.min.js"></script>
+    <script src="echarts/echarts.min.js"></script>
+
+    <button onclick="svc_send('hello web')">send</button>
+
+    <script>
+	  var myChart1;
+      window.onload = function () {
+	    myChart1 = echarts.init(document.getElementById('bar'));
+        ws();
+      }
+
+	  function SetOptions(data)
+	  {  
+		option = {
+			color: ['#3398DB'],
+			tooltip: {
+				trigger: 'axis',
+				axisPointer: {            // 坐标轴指示器，坐标轴触发有效
+					type: 'shadow'        // 默认为直线，可选为：'line' | 'shadow'
+				}
+			},
+			grid: {
+				left: '3%',
+				right: '4%',
+				bottom: '3%',
+				containLabel: true
+			},
+			xAxis: [
+				{name: 'x',
+					minorTick: {
+					  show: true
+					},
+					minorSplitLine: {
+					  show: true
+					}
+				}
+
+			],
+			yAxis: [
+				{
+					name: 'y',
+					minorTick: {
+					  show: true
+					},
+					minorSplitLine: {
+					  show: true
+					}
+				}
+			],
+			series: [
+				{
+					name: 'x',
+					type: 'line',
+					barWidth: '60%',
+					data: data
+				}
+			]
+		};
+
+		myChart1.setOption(option);
+      }
+	  
+	  var socket = null;
+      function ws() {
+        if (!window.WebSocket) {
+          window.WebSocket = window.MozWebSocket;
+        }
+        if (window.WebSocket) {
+          socket = new WebSocket("ws://192.168.0.10:9997/");
+          // 打开事件
+          socket.onopen = function (event) {
+            socket.binaryType = "arraybuffer";
+            console.info("连接开启");
+          };
+          // 获得消息事件
+          socket.onmessage = function (msg) {
+            onMessage(msg);
+          };
+          // 关闭事件
+          socket.onclose = function (event) {
+            console.info("连接被关闭");
+          };
+          // 发生了错误事件
+          socket.onerror = function () {
+            console.log("Socket发生了错误");
+          };
+        } else {
+          alert("你的浏览器不支持 WebSocket！");
+        }
+      }
+
+      window.onbeforeunload = function () {
+        closeWebSocket();
+      };
+      function closeWebSocket() {
+        socket.send("killed");
+      }
+
+      function svc_send(msg) {
+        if (socket.readyState == WebSocket.OPEN) {
+          socket.send(msg);
+        } else {
+          console.log("send failed. websocket not open. please check.");
+        }
+      }
+
+      function onMessage(event) {
+        let dataView = new DataView(event.data); // 创建视图
+
+        let data = [];
+        for (let i = 0, j = 0; i < event.data.byteLength; i++, j++) {
+          // 循环读出
+		  var word = dataView.getUint8(i) + (dataView.getUint8(++i) << 8);
+		  
+		  if (word > 32768){
+			word = word - 65536;
+		  }
+          data.push([j, word]);
+		  //console.log(word);
+        }
+        SetOptions(data);
+      }
+	  
+    </script>
+  </head>
+  <body>
+    <form id="form1" runat="server">
+      <div id="bar" style="width: 500px; height: 400px"></div>
+    </form>
+  </body>
+</html>
